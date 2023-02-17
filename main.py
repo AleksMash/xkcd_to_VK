@@ -7,10 +7,8 @@ import requests
 from dotenv import load_dotenv
 
 
-def load_image(url, name, dir='', params=None):
-    if dir:
-        os.makedirs(dir, exist_ok=True)
-    filename = Path.cwd()/ dir / name
+def download_image(url, name, params=None):
+    filename = Path.cwd() / name
     response = requests.get(url, params=params)
     response.raise_for_status()
     with open(filename, "wb") as file:
@@ -23,9 +21,9 @@ def get_file_extension(file_url):
     return os.path.splitext(path)[1]
 
 
-def get_photo_upload_server(group_id):
+def get_photo_upload_server(group_id, token):
     url = 'https://api.vk.com/method/photos.getWallUploadServer'
-    headers = {'Authorization': f'Bearer {TOKEN}'}
+    headers = {'Authorization': f'Bearer {token}'}
     params = {
         'group_id': group_id,
         'v': '5.131'
@@ -42,23 +40,28 @@ def upload_photo(uri, file_name):
             'photo': file
         }
         response = requests.post(uri, files=files)
-        response.raise_for_status()
+    response.raise_for_status()
     return response.json()
 
 
-def save_photo_to_group(photo_params, group_id):
+def save_photo_to_group(server, photo, hash, group_id, token):
     url = 'https://api.vk.com/method/photos.saveWallPhoto'
-    headers = {'Authorization': f'Bearer {TOKEN}'}
-    photo_params['v'] = '5.131'
-    photo_params['group_id'] = group_id
-    response = requests.post(url, params=photo_params, headers=headers)
+    headers = {'Authorization': f'Bearer {token}'}
+    params = {
+        'server': server,
+        'photo': photo,
+        'hash': hash,
+        'v': '5.131',
+        'group_id': group_id
+    }
+    response = requests.post(url, params=params, headers=headers)
     response.raise_for_status()
     return response.json()['response']
 
 
-def puplic_photo(message, save_result, group_id):
+def puplish_photo(message, save_result, group_id, token):
     url = 'https://api.vk.com/method/wall.post'
-    headers = {'Authorization': f'Bearer {TOKEN}'}
+    headers = {'Authorization': f'Bearer {token}'}
     owner_id, media_id = save_result[0]['owner_id'], save_result[0]['id']
     params = {
         'owner_id': f'-{group_id}',
@@ -72,35 +75,53 @@ def puplic_photo(message, save_result, group_id):
     return response.json()
 
 
-def get_comics(comics_id, file_name):
+def get_comic(comics_id, file_name):
     url = f'https://xkcd.com/{comics_id}/info.0.json'
     response = requests.get(url)
     response.raise_for_status()
-    comics = response.json()
-    img_url = comics['img']
+    comic = response.json()
+    img_url = comic['img']
     ext = get_file_extension(img_url)
     file_name_ext = f'{file_name}{ext}'
-    load_image(img_url, file_name_ext)
-    return comics['alt'], file_name_ext
+    download_image(img_url, file_name_ext)
+    return comic['alt'], file_name_ext
 
 
-def get_rand_comics(file_name):
+def get_rand_comic(file_name):
     url = f'https://xkcd.com/info.0.json'
     response = requests.get(url)
     response.raise_for_status()
     max_num = response.json()['num']
-    comics_id = randint(1, max_num)
-    return get_comics(comics_id, file_name)
+    url = f'https://xkcd.com/{randint(1, max_num)}/info.0.json'
+    response = requests.get(url)
+    response.raise_for_status()
+    comic = response.json()
+    img_url = comic['img']
+    ext = get_file_extension(img_url)
+    file_name_ext = f'{file_name}{ext}'
+    download_image(img_url, file_name_ext)
+    return comic['alt'], file_name_ext
+
+
+def main():
+    load_dotenv()
+    token = os.getenv('VK_APP_TOKEN')
+    group_id = os.getenv('VK_GROUP_ID')
+    comment, file_name = get_rand_comic('image')
+    try:
+        uri = get_photo_upload_server(group_id, token)
+        upload_result = upload_photo(uri, file_name)
+        save_result = save_photo_to_group(
+            upload_result['server'],
+            upload_result['photo'],
+            upload_result['hash'],
+            group_id,
+            token
+        )
+        puplish_photo(comment,save_result, group_id, token)
+    finally:
+        os.remove(file_name)
 
 
 if __name__=='__main__':
-    load_dotenv()
-    TOKEN = os.getenv('VK_APP_TOKEN')
-    GROUP_ID = os.getenv('GROUP_ID')
-    comment, file_name = get_rand_comics('image')
-    uri = get_photo_upload_server(GROUP_ID)
-    photo = upload_photo(uri, file_name=file_name)
-    save_result = save_photo_to_group(photo_params=photo, group_id=GROUP_ID)
-    puplic_photo(message=comment,
-                       save_result=save_result, group_id=GROUP_ID)
-    os.remove(file_name)
+    main()
