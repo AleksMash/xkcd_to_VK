@@ -23,7 +23,7 @@ pip install -r requirements.txt
 В домашнем каталоге файла `main.py` создайте файл `.env`, в котором укажите ID группы в ВК и ключа авторизации:
 
 ```
-GROUP_ID=id группы ВК
+VK_GROUP_ID=id группы ВК
 VK_APP_TOKEN=ключ авторизации для API ВК
 ```
 

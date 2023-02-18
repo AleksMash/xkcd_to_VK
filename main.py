@@ -44,13 +44,13 @@ def upload_photo(uri, file_name):
     return response.json()
 
 
-def save_photo_to_group(server, photo, hash, group_id, token):
+def save_photo_to_group(server, photo, hash_code, group_id, token):
     url = 'https://api.vk.com/method/photos.saveWallPhoto'
     headers = {'Authorization': f'Bearer {token}'}
     params = {
         'server': server,
         'photo': photo,
-        'hash': hash,
+        'hash': hash_code,
         'v': '5.131',
         'group_id': group_id
     }
@@ -59,10 +59,10 @@ def save_photo_to_group(server, photo, hash, group_id, token):
     return response.json()['response']
 
 
-def puplish_photo(message, save_result, group_id, token):
+def puplish_photo(message, owner_id, id, group_id, token):
     url = 'https://api.vk.com/method/wall.post'
     headers = {'Authorization': f'Bearer {token}'}
-    owner_id, media_id = save_result[0]['owner_id'], save_result[0]['id']
+    owner_id, media_id = owner_id, id
     params = {
         'owner_id': f'-{group_id}',
         'from_group': 1,
@@ -73,18 +73,6 @@ def puplish_photo(message, save_result, group_id, token):
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
-
-
-def get_comic(comics_id, file_name):
-    url = f'https://xkcd.com/{comics_id}/info.0.json'
-    response = requests.get(url)
-    response.raise_for_status()
-    comic = response.json()
-    img_url = comic['img']
-    ext = get_file_extension(img_url)
-    file_name_ext = f'{file_name}{ext}'
-    download_image(img_url, file_name_ext)
-    return comic['alt'], file_name_ext
 
 
 def get_rand_comic(file_name):
@@ -118,7 +106,7 @@ def main():
             group_id,
             token
         )
-        puplish_photo(comment,save_result, group_id, token)
+        puplish_photo(comment,save_result[0]['owner_id'], save_result[0]['id'], group_id, token)
     finally:
         os.remove(file_name)
 
